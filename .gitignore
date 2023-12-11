@@ -1,0 +1,9 @@
+# Ignore the following directories anywhere in the tree
+bin/
+build*/
+install*/
+
+# Ignore editor caches
+.*.sw[a-p]
+*DS_Store*
+*~
