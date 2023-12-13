@@ -1,0 +1,10 @@
+ffnn:
+  inputSize: 5
+  outputSize: 1
+  hiddenSize: 50
+
+training data:
+  dataSize: 2000
+
+training:
+  epochs: 800
