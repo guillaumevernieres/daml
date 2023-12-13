@@ -1,5 +1,5 @@
 #include "eckit/config/YAMLConfiguration.h"
-#include "./eckit/filesystem/PathName.h"
+#include "eckit/filesystem/PathName.h"
 
 #include "oops/util/Logger.h"
 
