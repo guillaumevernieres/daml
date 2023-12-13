@@ -39,9 +39,10 @@ For now, you will have to specify the root instalation of the JEDI repositories 
 ```
 mkdir build
 cd build
-cmake -DTorch_ROOT=<path to Torch install> \
+cmake -DCMAKE_INSTALL_PREFIX=../install \
+      -DTorch_ROOT=<path to pytorch install> \
       -Doops_ROOT=<path to oops install> \
-      -D... \
+      -Datlas_ROOT=<path to atlas install> \
       ..
 make -j<n>
 make install
