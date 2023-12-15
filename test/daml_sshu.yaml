@@ -4,7 +4,7 @@ ffnn:
   hiddenSize: 10
 
 training data:
-  dataSize: 200000
+  dataSize: 20000
 
 training:
-  epochs: 25000
+  epochs: 20000

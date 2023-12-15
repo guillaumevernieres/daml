@@ -23,6 +23,15 @@ struct Net : torch::nn::Module {
     return x;
   }
 
+  // Compute the Jacobian (dout/dx)
+  // TODO(G): Hard coded to a single output FFNN, generalize?
+  torch::Tensor jac(torch::Tensor x) {
+    auto xp = torch::from_blob(x.data_ptr(), {x.size(0)}, torch::requires_grad());
+    auto y = this->forward(xp);
+    y.backward();
+    return xp.grad();
+  }
+
   // Define the layers.
   torch::nn::Linear fc1{nullptr}, fc2{nullptr};
 };
@@ -94,9 +103,17 @@ public:
 
   // Prepare the inputs/targets
   std::pair<torch::Tensor, torch::Tensor> prepData() {
+    // Read from file
+    //         input : [Tsfc, qsno001, qice001, ..., qice007, sst,
+    //                  sice001, ..., sice007,
+    //                  ipnd, hpnd, apnd,
+    //                  vicen, vsnon ]
+    //        output : [aicen]
+
     // Open the NetCDF file in read-only mode
-    netCDF::NcFile ncFile("/home/gvernier/sandboxes/daml/data/iced.2021-07-01-10800.nc",
-                          netCDF::NcFile::read);
+    //netCDF::NcFile ncFile("/home/gvernier/sandboxes/daml/data/iced.2021-07-01-10800.nc",
+    //                    netCDF::NcFile::read);
+
 
     oops::Log::info() << "Invent training data " << std::endl;
     auto input = torch::randn({dataSize_, inputSize_});
@@ -131,6 +148,27 @@ int main(int argc, char* argv[]) {
   torch::Tensor prediction = iceEmul.model_->forward(input);
   std::cout << "Prediction: " << prediction.index({0}) << std::endl;
   std::cout << "Truth: " << input.sum().item<float>()/static_cast<float>(iceEmul.inputSize_) << std::endl;
+
+  torch::Tensor doutdx = iceEmul.model_->jac(input);
+  std::cout << "Jac dy/dx = " << doutdx << std::endl;
+
+  // Compute the tangent linear model
+  // Create an input tensor
+  //torch::Tensor x = torch::randn(iceEmul.inputSize_);
+
+
+  /*  Net testmodel(iceEmul.inputSize_,
+                iceEmul.hiddenSize_,
+                iceEmul.outputSize_);
+  auto tangent_linear_model = torch::autograd::grad(testmodel.forward(input),
+                                                    input); //,
+  //                                                    allow_zero_grad=true)[0];
+  */
+  // Print the tangent linear model
+  //std::cout << tangent_linear_model << std::endl;
+
+  //tangent_linear_model = torch.autograd.grad(model(x), x, allow_zero_grad=True)[0]
+
 
   return 0;
 }
