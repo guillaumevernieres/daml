@@ -1,10 +1,10 @@
 ffnn:
-  inputSize: 20
+  inputSize: 7
   outputSize: 1
-  hiddenSize: 10
+  hiddenSize: 2
 
 training data:
-  dataSize: 20000
+  dataSize: 10
 
 training:
-  epochs: 20000
+  epochs: 200000
