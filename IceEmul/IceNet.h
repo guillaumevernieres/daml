@@ -1,6 +1,7 @@
 #pragma once
 
-#include <torch/torch.h>
+#include <utility>
+#include "torch/torch.h"
 
 // Define the Feed Forward Neural Net model
 struct IceNet : torch::nn::Module {

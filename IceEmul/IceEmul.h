@@ -2,13 +2,17 @@
 
 #include <netcdf>
 
+#include <memory>
+#include <string>
+#include <tuple>
+#include <vector>
+
 #include "eckit/config/YAMLConfiguration.h"
 #include "eckit/filesystem/PathName.h"
 
+#include "nlohmann/json.hpp"
 #include "oops/util/Logger.h"
-
-#include <torch/torch.h>
-#include <nlohmann/json.hpp>
+#include "torch/torch.h"
 
 #include "IceNet.h"
 
@@ -46,7 +50,7 @@ void updateProgressBar(int progress, int total, float loss) {
 }
 
 class IceEmul {
-public:
+ public:
   int inputSize_;
   int outputSize_;
   int hiddenSize_;
@@ -59,7 +63,6 @@ public:
     inputSize_(getSize(infileName, "ffnn.inputSize")),
     outputSize_(getSize(infileName, "ffnn.outputSize")),
     hiddenSize_(getSize(infileName, "ffnn.hiddenputSize")) {
-
     // Parse the configuration
     eckit::PathName infilePathName = infileName;
     eckit::YAMLConfiguration config(infilePathName);
@@ -89,7 +92,7 @@ public:
   }
 
   // Training
-  void train (const torch::Tensor input, const torch::Tensor target) {
+  void train(const torch::Tensor input, const torch::Tensor target) {
     // Loss function and optimizer.
     oops::Log::info() << "Define loss fction and optimizer " << std::endl;
     torch::nn::MSELoss lossFn;
@@ -106,7 +109,7 @@ public:
 
       if (epoch % 100 == 0) {
         updateProgressBar(epoch, epochs_, loss.item<float>());
-        //std::cout << "Epoch: " << epoch << ", Loss: " << loss.item<float>() << std::endl;
+
         // Save the model to a file
         torch::save(model_, "model.pt");
       }
@@ -123,7 +126,6 @@ public:
   std::tuple<torch::Tensor, torch::Tensor,
              std::vector<float>, std::vector<float>> prepData(std::string fileName,
                                                     bool geoloc = false) {
-
     std::vector<float> lat = readCice(fileName, "ULAT");
     std::vector<float> lon = readCice(fileName, "ULON");
     std::vector<float> aice = readCice(fileName, "aice_h");

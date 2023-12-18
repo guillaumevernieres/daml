@@ -26,4 +26,4 @@ find_package(soca REQUIRED)
 add_subdirectory(IceEmul)
 
 # Testing
-#add_subdirectory(test)
+add_subdirectory(test)
