@@ -22,7 +22,7 @@ def scatterplot_ice(ax, var, varname, bounds=None, cmap='viridis'):
     plt.colorbar(scatter, ax=ax, orientation='horizontal', shrink=0.5, pad=0.02)
 
 # Load the NetCDF file
-file_path = "gdas.t00z.icef009.ffnn.nc"
+file_path = "gdas.t00z.icef009.ffnn.nc.20210710"
 ds = xr.open_dataset(file_path)
 
 # Extract the variables

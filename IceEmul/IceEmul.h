@@ -54,8 +54,8 @@ class IceEmul {
   int inputSize_;
   int outputSize_;
   int hiddenSize_;
-  int dataSize_;
   size_t epochs_;
+  std::string modelOutputFileName_;
   std::shared_ptr<IceNet> model_;
 
   // Constructor
@@ -73,15 +73,21 @@ class IceEmul {
     oops::Log::info() << "FFNN with " << inputSize_ << " inputs, "
                       << outputSize_ << " outputs" << std::endl;
 
-    // Get the training data info
-    config.get("training data.dataSize", dataSize_);
-
     // Optimization parameters
-    config.get("training.epochs", epochs_);
+    if (config.has("training")) {
+      config.get("training.epochs", epochs_);
+      config.get("training.model output", modelOutputFileName_);
+    }
 
     // Initialize the FFNN
-    // TODO(G): figure out how to move this as an initializer
     model_ = std::make_shared<IceNet>(inputSize_, hiddenSize_, outputSize_);
+
+    // Load model if asked in the config
+    if (config.has("ffnn.load model")) {
+      std::string modelFileName;
+      config.get("ffnn.load model", modelFileName);
+      torch::load(model_, modelFileName);
+    }
 
     // Number of degrees of freedom in the FFNN
     size_t total_params = 0;
@@ -110,8 +116,8 @@ class IceEmul {
       if (epoch % 100 == 0) {
         updateProgressBar(epoch, epochs_, loss.item<float>());
 
-        // Save the model to a file
-        torch::save(model_, "model.pt");
+        // Save the model
+        torch::save(model_, modelOutputFileName_);
       }
 
       // Backward pass and optimization step.
@@ -125,8 +131,8 @@ class IceEmul {
   // Prepare the inputs/targets
   std::tuple<torch::Tensor, torch::Tensor,
              std::vector<float>, std::vector<float>> prepData(std::string fileName,
-                                                    bool geoloc = false) {
-    std::vector<float> lat = readCice(fileName, "ULAT");
+                                                              bool geoloc = false) {
+    // Read the patterns/targets    std::vector<float> lat = readCice(fileName, "ULAT");
     std::vector<float> lon = readCice(fileName, "ULON");
     std::vector<float> aice = readCice(fileName, "aice_h");
     std::vector<float> tsfc = readCice(fileName, "Tsfc_h");

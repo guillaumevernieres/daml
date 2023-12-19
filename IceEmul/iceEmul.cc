@@ -1,23 +1,34 @@
+#include "oops/util/Logger.h"
 #include "IceEmul.h"
 
 int main(int argc, char* argv[]) {
-  // TODO(G): Separate into 2 applications, or pass what needs to be done
-  //          through the configuration. For ex., read precomputed weights
-  //          instead of training.
+  eckit::PathName infilePathName = static_cast<std::string>(argv[1]);
+  eckit::YAMLConfiguration config(infilePathName);
+
+  oops::Log::info() << "Initialize the FFNN" << std::endl;
   IceEmul iceEmul(static_cast<std::string>(argv[1]));
 
-  // Generate synthetic data for training.
-  std::string fileName("/home/gvernier/data/gdas.t00z.icef009.nc");
-  auto result = iceEmul.prepData(fileName);
-  torch::Tensor inputs = std::get<0>(result);
-  torch::Tensor targets = std::get<1>(result);
-
-  // Train
-  iceEmul.train(inputs, targets);
+  // Generate patterns-targets pairs and train
+  if (config.has("training")) {
+    oops::Log::info() << "Prepare patterns/targets pairs" << std::endl;
+    std::string fileName;
+    config.get("training.cice history", fileName);
+    auto result = iceEmul.prepData(fileName);
+    torch::Tensor inputs = std::get<0>(result);
+    torch::Tensor targets = std::get<1>(result);
+    oops::Log::info() << "Train the FFNN" << std::endl;
+    iceEmul.train(inputs, targets);
+  }
 
   // Predictions
-  std::string fileNameResults("gdas.t00z.icef009.ffnn.nc");
-  iceEmul.predict(fileName, fileNameResults);
+  if (config.has("prediction")) {
+    oops::Log::info() << "Predict" << std::endl;
+    std::string fileName;
+    config.get("prediction.cice history", fileName);
+    std::string fileNameResults;
+    config.get("prediction.output filename", fileNameResults);
+    iceEmul.predict(fileName, fileNameResults);
+  }
 
   return 0;
 }
