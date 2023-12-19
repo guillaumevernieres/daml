@@ -100,7 +100,7 @@ class IceEmul {
   // Training
   void train(const torch::Tensor input, const torch::Tensor target) {
     // Loss function and optimizer.
-    oops::Log::info() << "Define loss fction and optimizer " << std::endl;
+    oops::Log::info() << "Define loss function and optimizer " << std::endl;
     torch::nn::MSELoss lossFn;
     torch::optim::Adam optimizer(model_->parameters(), torch::optim::AdamOptions(1e-3));
 
