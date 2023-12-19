@@ -132,7 +132,8 @@ class IceEmul {
   std::tuple<torch::Tensor, torch::Tensor,
              std::vector<float>, std::vector<float>> prepData(std::string fileName,
                                                               bool geoloc = false) {
-    // Read the patterns/targets    std::vector<float> lat = readCice(fileName, "ULAT");
+    // Read the patterns/targets
+    std::vector<float> lat = readCice(fileName, "ULAT");
     std::vector<float> lon = readCice(fileName, "ULON");
     std::vector<float> aice = readCice(fileName, "aice_h");
     std::vector<float> tsfc = readCice(fileName, "Tsfc_h");
