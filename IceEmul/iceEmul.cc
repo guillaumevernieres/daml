@@ -6,7 +6,7 @@ int main(int argc, char* argv[]) {
   eckit::YAMLConfiguration config(infilePathName);
 
   oops::Log::info() << "Initialize the FFNN" << std::endl;
-  IceEmul iceEmul(static_cast<std::string>(argv[1]));
+  daml::IceEmul iceEmul(static_cast<std::string>(argv[1]));
 
   // Generate patterns-targets pairs and train
   if (config.has("training")) {
