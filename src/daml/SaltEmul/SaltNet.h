@@ -3,9 +3,11 @@
 #include <utility>
 #include "torch/torch.h"
 
+#include "oops/util/Logger.h"
+
 // Define the Feed Forward Neural Net model
-struct IceNet : torch::nn::Module {
-  IceNet(int inputSize, int hiddenSize, int outputSize) {
+struct SaltNet : torch::nn::Module {
+  SaltNet(int inputSize, int hiddenSize, int outputSize) {
     oops::Log::trace() << "Net: " << inputSize << outputSize << hiddenSize << std::endl;
     // Define the layers.
     fc1 = register_module("fc1", torch::nn::Linear(inputSize, hiddenSize));

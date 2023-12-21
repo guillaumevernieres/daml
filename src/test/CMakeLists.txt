@@ -1,6 +1,6 @@
 ecbuild_add_test( TARGET test_daml_coding_norms
                   TYPE SCRIPT
-                  COMMAND ${PROJECT_BINARY_DIR}/../bin/${PROJECT_NAME}_cpplint.py
+                  COMMAND ${CMAKE_BINARY_DIR}/bin/cpplint.py
                   ARGS --quiet --recursive ${CMAKE_CURRENT_SOURCE_DIR}/../
                   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin )
 

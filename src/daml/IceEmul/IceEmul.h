@@ -13,7 +13,7 @@
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
 
-#include "BaseEmul.h"
+#include "daml/Base/BaseEmul.h"
 #include "IceNet.h"
 
 // -----------------------------------------------------------------------------
@@ -38,9 +38,9 @@ namespace daml {
 
   // IceEmul class derived from BaseEmul
   class IceEmul : public BaseEmul<IceNet> {
-  public:
+   public:
     // Constructor
-    explicit IceEmul(const std::string& infileName) : BaseEmul<IceNet>(infileName) {};
+    explicit IceEmul(const std::string& infileName) : BaseEmul<IceNet>(infileName) {}
 
     // -----------------------------------------------------------------------------
     // Override prepData in IceEmul
@@ -61,7 +61,7 @@ namespace daml {
 
       int numPatterns(0);
       for (size_t i = 0; i < lat.size(); ++i) {
-        //if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
+        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
         if (lat[i] > 40.0) {
           numPatterns+=1;
         }
@@ -74,7 +74,7 @@ namespace daml {
       std::vector<float> lon_out;
       int cnt(0);
       for (size_t i = 0; i < lat.size(); ++i) {
-        //if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
+        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
         if (lat[i] > 40.0) {
           patterns[cnt][0] = tair[i];
           patterns[cnt][1] = tsfc[i];

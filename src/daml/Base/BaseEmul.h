@@ -1,9 +1,16 @@
 #pragma once
 
-#include <torch/torch.h>
 #include <memory>
+#include <string>
+#include <tuple>
 #include <vector>
 
+#include "eckit/config/YAMLConfiguration.h"
+#include "eckit/filesystem/PathName.h"
+
+#include "nlohmann/json.hpp"
+#include "oops/util/Logger.h"
+#include "torch/torch.h"
 
 // -----------------------------------------------------------------------------
 
@@ -12,7 +19,7 @@ namespace daml {
   // -----------------------------------------------------------------------------
   /// Utilities
   // -----------------------------------------------------------------------------
-  void updateProgressBar(int progress, int total) {
+  /*void updateProgressBar(int progress, int total) {
     const int barWidth = 50;
     float percentage = static_cast<float>(progress) / total;
     int barLength = static_cast<int>(percentage * barWidth);
@@ -26,14 +33,14 @@ namespace daml {
     }
     std::cout << "]" << std::setw(3) << static_cast<int>(percentage * 100) << "%\r";
     std::cout.flush();
-  }
+    }*/
 
   // -----------------------------------------------------------------------------
   /// Emulator base class
   // -----------------------------------------------------------------------------
   template <typename Net>
   class BaseEmul {
-  protected:
+   protected:
     int inputSize_;
     int outputSize_;
     int hiddenSize_;
@@ -41,7 +48,7 @@ namespace daml {
     std::string modelOutputFileName_;
     std::shared_ptr<Net> model_;
 
-  public:
+   public:
     // Constructor
     explicit BaseEmul(const std::string& infileName) :
       inputSize_(getSize(infileName, "ffnn.inputSize")),
@@ -98,7 +105,7 @@ namespace daml {
         auto loss = lossFn(output.view({-1}), target);
 
         if (epoch % 100 == 0) {
-          updateProgressBar(epoch, epochs_);
+          // updateProgressBar(epoch, epochs_);
 
           // Save the model
           torch::save(model_, modelOutputFileName_);
