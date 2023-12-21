@@ -1,3 +1,4 @@
+#include "BaseEmul.h"
 #include "IceEmul.h"
 #include <netcdf>
 
@@ -15,22 +16,6 @@ namespace daml {
     ncFile.getVar(varName).getVar(iceField.data());
 
     return iceField;
-  }
-
-  void updateProgressBar(int progress, int total, float loss) {
-    const int barWidth = 50;
-    float percentage = static_cast<float>(progress) / total;
-    int barLength = static_cast<int>(percentage * barWidth);
-    std::cout << "[";
-    for (int i = 0; i < barWidth; ++i) {
-      if (i < barLength) {
-        std::cout << "=";
-      } else {
-        std::cout << " ";
-      }
-    }
-    std::cout << "] Loss: " << loss << std::setw(3) << static_cast<int>(percentage * 100) << "%\r";
-    std::cout.flush();
   }
 
   // -----------------------------------------------------------------------------

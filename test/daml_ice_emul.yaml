@@ -9,7 +9,7 @@ prediction:
   #cice history: "/home/gvernier/data/20210710/00/gdas.t00z.icef003.nc"
   output filename: "gdas.t00z.icef003.ffnn.nc"
 
-#training:
-#  epochs: 200
-#  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef009.nc"
-#  model output: "model.pt"
+training:
+  epochs: 2000
+  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef009.nc"
+  model output: "model.pt"
