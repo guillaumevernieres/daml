@@ -1,5 +1,5 @@
 #include "oops/util/Logger.h"
-#include "SaltEmul.h"
+#include "daml/SaltEmul/SaltEmul.h"
 
 int main(int argc, char* argv[]) {
   eckit::PathName infilePathName = static_cast<std::string>(argv[1]);
@@ -15,6 +15,15 @@ int main(int argc, char* argv[]) {
     auto result = saltEmul.prepData(fileName);
     torch::Tensor inputs = std::get<0>(result);
     torch::Tensor targets = std::get<1>(result);
+
+    // Using the size() method
+    auto size = targets.sizes();
+    std::cout << "Size of the tensor: ";
+    for (auto dim : size) {
+      std::cout << dim << " ";
+    }
+    std::cout << std::endl;
+
     oops::Log::info() << "Train the FFNN" << std::endl;
     saltEmul.train(inputs, targets);
   }

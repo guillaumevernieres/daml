@@ -1,0 +1,14 @@
+ffnn:
+  inputSize: 75
+  outputSize: 75
+  hiddenSize: 1
+  kernelSize: 2
+  stride: 1
+#  load model: "model.pt"
+
+prediction:
+  output filename: "salt.ffnn.nc"
+
+training:
+  epochs: 20000
+  model output: "model.pt"

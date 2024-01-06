@@ -19,22 +19,6 @@ namespace daml {
   // -----------------------------------------------------------------------------
   /// Utilities
   // -----------------------------------------------------------------------------
-  /*void updateProgressBar(int progress, int total) {
-    const int barWidth = 50;
-    float percentage = static_cast<float>(progress) / total;
-    int barLength = static_cast<int>(percentage * barWidth);
-    std::cout << "[";
-    for (int i = 0; i < barWidth; ++i) {
-      if (i < barLength) {
-        std::cout << "=";
-      } else {
-        std::cout << " ";
-      }
-    }
-    std::cout << "]" << std::setw(3) << static_cast<int>(percentage * 100) << "%\r";
-    std::cout.flush();
-    }*/
-
   // -----------------------------------------------------------------------------
   /// Emulator base class
   // -----------------------------------------------------------------------------
@@ -44,6 +28,8 @@ namespace daml {
     int inputSize_;
     int outputSize_;
     int hiddenSize_;
+    int kernelSize_;
+    int stride_;
     size_t epochs_;
     std::string modelOutputFileName_;
     std::shared_ptr<Net> model_;
@@ -61,8 +47,15 @@ namespace daml {
       // Get the basic design parameters of the ffnn from the configuration.
       config.get("ffnn.outputSize", outputSize_);
       config.get("ffnn.hiddenSize", hiddenSize_);
+      config.get("ffnn.hiddenSize", hiddenSize_);
       oops::Log::info() << "FFNN with " << inputSize_ << " inputs, "
                         << outputSize_ << " outputs" << std::endl;
+
+      // Get the parameters for the convolution layer
+      if (config.has("ffnn.kernelSize")) {
+          config.get("ffnn.kernelSize", kernelSize_);
+          config.get("ffnn.stride", stride_);
+      }
 
       // Optimization parameters
       if (config.has("training")) {
@@ -71,7 +64,7 @@ namespace daml {
       }
 
       // Initialize the FFNN
-      model_ = std::make_shared<Net>(inputSize_, hiddenSize_, outputSize_);
+      model_ = std::make_shared<Net>(inputSize_, hiddenSize_, outputSize_, kernelSize_, stride_);
 
       // Load model if asked in the config
       if (config.has("ffnn.load model")) {
@@ -102,10 +95,9 @@ namespace daml {
         auto output = model_->forward(input);
 
         // Compute the loss.
-        auto loss = lossFn(output.view({-1}), target);
-
+        torch::Tensor loss = lossFn(output.view({-1}), target.view({-1}));
         if (epoch % 100 == 0) {
-          // updateProgressBar(epoch, epochs_);
+          updateProgressBar(epoch, epochs_, loss.item<float>());
 
           // Save the model
           torch::save(model_, modelOutputFileName_);
@@ -133,6 +125,23 @@ namespace daml {
       int param;
       config.get(paramName, param);
       return param;
+    }
+
+    void updateProgressBar(int progress, int total, float loss) {
+      const int barWidth = 50;
+      float percentage = static_cast<float>(progress) / total;
+      int barLength = static_cast<int>(percentage * barWidth);
+      std::cout << "[";
+      for (int i = 0; i < barWidth; ++i) {
+        if (i < barLength) {
+          std::cout << "=";
+        } else {
+          std::cout << " ";
+        }
+      }
+      std::cout << "] " << std::setw(3) << static_cast<int>(percentage * 100)
+                << "% "<< "Loss: " << loss << "\r";
+      std::cout.flush();
     }
   };
 }  // namespace daml

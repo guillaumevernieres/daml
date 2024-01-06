@@ -1,6 +1,5 @@
 #pragma once
 
-#include <netcdf>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -30,22 +29,20 @@ namespace daml {
     // Override prepData
     std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
     prepData(const std::string& fileName, bool geoloc = false) override {
-      int numPatterns(200);
-      torch::Tensor patterns = torch::empty({numPatterns, inputSize_}, torch::kFloat32);
-      torch::Tensor targets = torch::empty({numPatterns, outputSize_}, torch::kFloat32);
+      int numPatterns(2000);
+      torch::Tensor patterns = torch::randn({numPatterns, 1, inputSize_}, torch::kFloat32);
+      torch::Tensor targets = torch::randn({numPatterns, outputSize_}, torch::kFloat32);
       std::vector<float> lat;
       std::vector<float> lon;
 
-      int zlev(25);
       int cnt(0);
       for (size_t i = 0; i < numPatterns; ++i) {
         for (size_t z = 0; z < inputSize_; ++z) {
-          patterns[cnt][z] = 15.0;
-          patterns[cnt][z + zlev] = static_cast<float>(z);
+          patterns[i][0][z] *= 15.0;
+          targets[i][z] *= 35.0;
         }
-        targets[cnt] = 35.0;
-        cnt+=1;
       }
+
       return std::make_tuple(patterns, targets, lon, lat);
     }
 

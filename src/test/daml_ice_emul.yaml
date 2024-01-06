@@ -2,7 +2,7 @@ ffnn:
   inputSize: 7
   outputSize: 1
   hiddenSize: 2
-  load model: ./arctic/model.pt
+#  load model: "./arctic/model.pt"
 
 prediction:
   cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
