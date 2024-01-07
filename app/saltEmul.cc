@@ -12,17 +12,10 @@ int main(int argc, char* argv[]) {
   if (config.has("training")) {
     oops::Log::info() << "Prepare patterns/targets pairs" << std::endl;
     std::string fileName;
+    config.get("training.mom6 restart", fileName);
     auto result = saltEmul.prepData(fileName);
     torch::Tensor inputs = std::get<0>(result);
     torch::Tensor targets = std::get<1>(result);
-
-    // Using the size() method
-    auto size = targets.sizes();
-    std::cout << "Size of the tensor: ";
-    for (auto dim : size) {
-      std::cout << dim << " ";
-    }
-    std::cout << std::endl;
 
     oops::Log::info() << "Train the FFNN" << std::endl;
     saltEmul.train(inputs, targets);
@@ -34,6 +27,7 @@ int main(int argc, char* argv[]) {
     std::string fileName;
     std::string fileNameResults;
     config.get("prediction.output filename", fileNameResults);
+    config.get("prediction.mom6 restart", fileName);
     saltEmul.predict(fileName, fileNameResults);
   }
 

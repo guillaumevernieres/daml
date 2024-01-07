@@ -9,11 +9,14 @@
 struct SaltNet : torch::nn::Module {
   SaltNet(int inputSize, int hiddenSize, int outputSize,
           int kernelSize, int stride) {
-    oops::Log::trace() << "Net: " << inputSize << outputSize << hiddenSize << std::endl;
+    oops::Log::trace() << "Net: " << inputSize
+                       << outputSize << hiddenSize << kernelSize << std::endl;
 
     // Define the convolution layers
     conv = register_module("conv",
-                  torch::nn::Conv1d(torch::nn::Conv1dOptions(1, hiddenSize, kernelSize).stride(stride)));
+                  torch::nn::Conv1d(torch::nn::Conv1dOptions(1,
+                                                             hiddenSize,
+                                                             kernelSize).stride(stride)));
 
     // Define the layers.
     int nin = hiddenSize * (inputSize - kernelSize + 1);
@@ -23,9 +26,13 @@ struct SaltNet : torch::nn::Module {
 
   // Implement the forward pass
   torch::Tensor forward(torch::Tensor temp) {
+    { auto size = temp.sizes(); std::cout << size << std::endl;}
     temp = conv(temp);
+    { auto size = temp.sizes(); std::cout << size << std::endl;}
     temp = temp.view({temp.size(0), -1});
+    { auto size = temp.sizes(); std::cout << size << std::endl;}
     temp = fc1(temp);
+    { auto size = temp.sizes(); std::cout << size << std::endl;}
     torch::Tensor salt = fc2(temp);
     return salt;
   }
