@@ -1,16 +1,17 @@
 ffnn:
-  inputSize: 15
-  outputSize: 15
-  hiddenSize: 20
-  kernelSize: 3
-  stride: 1
-  load model: "model.pt"
+  inputSize: 20
+  outputSize: 20
+  hiddenSize: 1
+  kernelSize: 5
+  stride: 1'
+#  load model: "model.pt"
 
-#prediction:
+prediction:
 #  output filename: "salt.ffnn.nc"
-#  mom6 restart: "/home/gvernier/sandboxes/GDASApp/sorc/soca/test/Data/72x35x25/restarts/MOM.res.nc"
+  mom6 restart: "/home/gvernier/data/woa/woa_ts.nc"
 
 training:
-  epochs: 1000
-  mom6 restart: "/home/gvernier/sandboxes/GDASApp/sorc/soca/test/Data/72x35x25/restarts/MOM.res.nc"
+  epochs: 30000
+  batch size: 300
+  mom6 restart: "/home/gvernier/data/woa/woa_ts.nc"
   model output: "model.pt"

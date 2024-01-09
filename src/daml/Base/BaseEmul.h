@@ -30,6 +30,7 @@ namespace daml {
     int hiddenSize_;
     int kernelSize_;
     int stride_;
+    int batchSize_;
     size_t epochs_;
     std::string modelOutputFileName_;
     std::shared_ptr<Net> model_;
@@ -61,6 +62,7 @@ namespace daml {
       if (config.has("training")) {
         config.get("training.epochs", epochs_);
         config.get("training.model output", modelOutputFileName_);
+        config.get("training.batch size", batchSize_);
       }
 
       // Initialize the FFNN

@@ -14,7 +14,7 @@ struct SaltNet : torch::nn::Module {
 
     // Define the convolution layers
     conv = register_module("conv",
-                  torch::nn::Conv1d(torch::nn::Conv1dOptions(1,
+                  torch::nn::Conv1d(torch::nn::Conv1dOptions(3,
                                                              hiddenSize,
                                                              kernelSize).stride(stride)));
 
@@ -25,16 +25,13 @@ struct SaltNet : torch::nn::Module {
   }
 
   // Implement the forward pass
-  torch::Tensor forward(torch::Tensor temp) {
-    { auto size = temp.sizes(); std::cout << size << std::endl;}
-    temp = conv(temp);
-    { auto size = temp.sizes(); std::cout << size << std::endl;}
-    temp = temp.view({temp.size(0), -1});
-    { auto size = temp.sizes(); std::cout << size << std::endl;}
-    temp = fc1(temp);
-    { auto size = temp.sizes(); std::cout << size << std::endl;}
-    torch::Tensor salt = fc2(temp);
-    return salt;
+  torch::Tensor forward(torch::Tensor x) {
+    x = conv(x);
+    x = x.view({x.size(0), -1});
+    x = torch::sigmoid(fc1(x));
+    //x = fc1(x);
+    torch::Tensor ds = fc2(x);
+    return ds;
   }
 
   // Compute the Jacobian (dout/dx)
