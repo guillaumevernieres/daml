@@ -95,7 +95,7 @@ namespace daml {
     // -----------------------------------------------------------------------------
     // Override prepData
     std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
-    prepData(const std::string& fileName, bool geoloc = false) override {
+    prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
       // Read temp and salt from woa file
       array4D temp = readWOA(fileName, "t_an");
       array4D salt = readWOA(fileName, "s_an");
@@ -104,14 +104,14 @@ namespace daml {
       // Input patterns: Temp, Salt and delta Temp
       // Output: delta Salt
       int numPatterns(batchSize_);
+      if (n > 0) { numPatterns = n; }
       torch::Tensor patterns = torch::ones({numPatterns, 3, inputSize_}, torch::kFloat32);
       torch::Tensor targets = torch::ones({numPatterns, outputSize_}, torch::kFloat32);
       std::vector<float> lat;
       std::vector<float> lon;
 
-      std::vector<int> depthIndices = {0, 2, 4, 6, 8, 10, 12, 14, 16, 20,
-        22, 24, 26, 28, 30, 40, 50, 60, 70, 100};
-
+      std::vector<int> depthIndices = {0,  3,  6,  9, 12, 15, 18, 21, 24, 27, 30, 33,
+        36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66};
 
       int cnt(0);
       for (size_t j = 1; j < temp[0][0].size()-1; ++j) {
@@ -123,25 +123,15 @@ namespace daml {
           // construct patterns/targets pair
           int z = 0;
           for (int zindex : depthIndices) {
-            std::cout << "z: " << z << std::endl;
             //for (size_t z = 0; z < inputSize_; ++z) {
             patterns[cnt][0][z] = temp[0][i][j][zindex];
             patterns[cnt][1][z] = salt[0][i][j][zindex];
             patterns[cnt][2][z] = temp[0][i-1][j][zindex] - temp[0][i][j][zindex];
             targets[cnt][z] = salt[0][i-1][j][zindex] - salt[0][i][j][zindex];
-
-            std::cout << " woaz: " << zindex << std::endl;
-            std::cout << "Temp prior: " << patterns[cnt][0][z].item<float>() << std::endl;
-            std::cout << "Salt prior: " << patterns[cnt][1][z].item<float>() << std::endl;
-            std::cout << "dT: " << patterns[cnt][2][z].item<float>() << std::endl;
-            std::cout << "dS: " << targets[cnt][z].item<float>() <<std::endl;
-            std::cout << "============================ " << cnt << std::endl;
-
             z += 1;
           }
           cnt +=1;
           if (cnt >= numPatterns) {
-            std::cout << "--------------------------" << std::endl;
             return std::make_tuple(patterns, targets, lon, lat);
           }
         }
@@ -151,29 +141,41 @@ namespace daml {
 
     // -----------------------------------------------------------------------------
     // Override predict
-    void predict(const std::string& fileName, const std::string& fileNameResults) override {
+    void predict(const std::string& fileName, const std::string& fileNameResults,
+                 const int n) override {
       // Read the inputs/targets
-      auto result = prepData(fileName, false);
+      auto result = prepData(fileName, false, n);
       torch::Tensor inputs = std::get<0>(result);
       torch::Tensor targets = std::get<1>(result);
+
+      float temp[inputs.size(0)][inputSize_];
+      float salt[inputs.size(0)][inputSize_];
+      float dt[inputs.size(0)][inputSize_];
+      float ds[inputs.size(0)][inputSize_];
+      float ds_truth[inputs.size(0)][inputSize_];
 
       torch::Tensor prediction = model_->forward(inputs);
       std::cout << "============================" << std::endl;
       std::cout << "======= PREDICTION =========" << std::endl;
       std::cout << "============================" << std::endl;
       for (size_t j = 0; j < inputs.size(0); ++j) {
-        std::cout << "============================" << j << std::endl;
         for (size_t k = 0; k < inputSize_; ++k) {
-          std::cout << "Temp: " << inputs[j][0][k].item<float>() << std::endl;
-          std::cout << "Salt: " << inputs[j][1][k].item<float>() << std::endl;
-          std::cout << "dT: " << inputs[j][2][k].item<float>() << std::endl;
-          std::cout << "dS pred: " << prediction[j][k].item<float>() << std::endl;
-          std::cout << "dS truth: " << targets[j][k].item<float>() << std::endl;
-          std::cout << "Error: " << std::abs(prediction[j][k].item<float>() -
-                                             targets[j][k].item<float>())<< std::endl;
-          std::cout << "-------------------" << std::endl;
+          temp[j][k] = inputs[j][0][k].item<float>();
+          salt[j][k] = inputs[j][1][k].item<float>();
+          dt[j][k] = inputs[j][2][k].item<float>();
+          ds[j][k] = prediction[j][k].item<float>();
+          ds_truth[j][k] = targets[j][k].item<float>();
         }
       }
+
+      netCDF::NcFile ncFile(fileNameResults, netCDF::NcFile::replace);
+      netCDF::NcDim dimNbatch = ncFile.addDim("n", inputs.size(0));
+      netCDF::NcDim dimLevels = ncFile.addDim("levels", inputSize_);
+      ncFile.addVar("temp", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(temp);
+      ncFile.addVar("salt", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(salt);
+      ncFile.addVar("dt", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(dt);
+      ncFile.addVar("ds", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(ds);
+      ncFile.addVar("ds_truth", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(ds_truth);
     }
   };
 }  // namespace daml

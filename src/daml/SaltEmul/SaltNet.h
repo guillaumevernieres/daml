@@ -17,7 +17,10 @@ struct SaltNet : torch::nn::Module {
                   torch::nn::Conv1d(torch::nn::Conv1dOptions(3,
                                                              hiddenSize,
                                                              kernelSize).stride(stride)));
-
+    conv2 = register_module("conv2",
+                  torch::nn::Conv1d(torch::nn::Conv1dOptions(hiddenSize,
+                                                             hiddenSize,
+                                                             kernelSize).stride(1)));
     // Define the layers.
     int nin = hiddenSize * (inputSize - kernelSize + 1);
     fc1 = register_module("fc1", torch::nn::Linear(nin, hiddenSize));
@@ -28,9 +31,9 @@ struct SaltNet : torch::nn::Module {
   torch::Tensor forward(torch::Tensor x) {
     x = conv(x);
     x = x.view({x.size(0), -1});
-    x = torch::sigmoid(fc1(x));
-    //x = fc1(x);
-    torch::Tensor ds = fc2(x);
+    //x = torch::sigmoid(fc1(x));
+    x = fc1(x);
+    torch::Tensor ds = torch::tanh(fc2(x));
     return ds;
   }
 
@@ -44,6 +47,7 @@ struct SaltNet : torch::nn::Module {
 
   // Data members
   torch::nn::Conv1d conv{nullptr};
+  torch::nn::Conv1d conv2{nullptr};
   torch::nn::Linear fc1{nullptr};
   torch::nn::Linear fc2{nullptr};
 };

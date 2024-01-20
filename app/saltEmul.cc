@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
   if (config.has("training")) {
     oops::Log::info() << "Prepare patterns/targets pairs" << std::endl;
     std::string fileName;
-    config.get("training.mom6 restart", fileName);
+    config.get("training.ts profiles", fileName);
     auto result = saltEmul.prepData(fileName);
     torch::Tensor inputs = std::get<0>(result);
     torch::Tensor targets = std::get<1>(result);
@@ -27,8 +27,10 @@ int main(int argc, char* argv[]) {
     std::string fileName;
     std::string fileNameResults;
     config.get("prediction.output filename", fileNameResults);
-    config.get("prediction.mom6 restart", fileName);
-    saltEmul.predict(fileName, fileNameResults);
+    config.get("prediction.ts profiles", fileName);
+    int batchSize;
+    config.get("prediction.batch size", batchSize);
+    saltEmul.predict(fileName, fileNameResults, batchSize);
   }
 
   return 0;

@@ -36,6 +36,36 @@ namespace daml {
     return iceField;
   }
 
+  // Check if data is in the domain
+  bool selectData(const float mask, const float lat, const float aice,
+                  const bool cleanData, std::string pole) {
+    if (pole == "north") {
+      if (cleanData) {
+        if (mask == 1 && lat > 40.0 && aice > 0.0 && aice <= 1.0) {
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        if (lat > 60.0)
+          return true;
+      }
+    }
+    if (pole == "south") {
+      if (cleanData) {
+        if (mask == 1 && lat < -40.0 && aice > 0.0 && aice <= 1.0) {
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        if (lat < -60.0)
+          return true;
+      }
+    }
+    return false;
+  }
+
   // IceEmul class derived from BaseEmul
   class IceEmul : public BaseEmul<IceNet> {
    public:
@@ -44,8 +74,20 @@ namespace daml {
 
     // -----------------------------------------------------------------------------
     // Override prepData in IceEmul
-    std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
-    prepData(const std::string& fileName, bool geoloc = false) override {
+    std::tuple<torch::Tensor,
+               torch::Tensor,
+               std::vector<float>,
+               std::vector<float>,
+               torch::Tensor,
+               torch::Tensor>
+    prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
+      // Read additional config
+      eckit::YAMLConfiguration config(configFile_);
+      std::string pole;
+      config.get("domain.pole", pole);
+      bool cleanData;
+      config.get("domain.clean data", cleanData);
+
       // Read the patterns/targets
       std::vector<float> lat = readCice(fileName, "ULAT");
       std::vector<float> lon = readCice(fileName, "ULON");
@@ -61,8 +103,7 @@ namespace daml {
 
       int numPatterns(0);
       for (size_t i = 0; i < lat.size(); ++i) {
-        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
-        if (lat[i] > 40.0) {
+        if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
           numPatterns+=1;
         }
       }
@@ -74,8 +115,8 @@ namespace daml {
       std::vector<float> lon_out;
       int cnt(0);
       for (size_t i = 0; i < lat.size(); ++i) {
-        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
-        if (lat[i] > 40.0) {
+
+        if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
           patterns[cnt][0] = tair[i];
           patterns[cnt][1] = tsfc[i];
           patterns[cnt][2] = sst[i];
@@ -90,12 +131,18 @@ namespace daml {
           cnt+=1;
         }
       }
-      return std::make_tuple(patterns, targets, lon_out, lat_out);
+
+      // Compute mean and std of the patterns
+      torch::Tensor mean = torch::mean(patterns, /*dim=*/0);
+      torch::Tensor std = torch::std(patterns, /*dim=*/0, /*unbiased=*/false);
+
+      return std::make_tuple(patterns, targets, lon_out, lat_out, mean, std);
     }
 
     // -----------------------------------------------------------------------------
     // Override predict in IceEmul
-    void predict(const std::string& fileName, const std::string& fileNameResults) override {
+    void predict(const std::string& fileName, const std::string& fileNameResults,
+                 const int n = -999) override {
       // Read the inputs/targets
       auto result = prepData(fileName, true);
       torch::Tensor inputs = std::get<0>(result);
@@ -129,7 +176,6 @@ namespace daml {
 
         // Compute the Jacobian
         torch::Tensor doutdx = model_->jac(input);
-
         // Save the Jacobian elements into individual arrays
         // TODO(G): Store the jacobian in a 2D array
         dcdtair.push_back(doutdx[0].item<float>());

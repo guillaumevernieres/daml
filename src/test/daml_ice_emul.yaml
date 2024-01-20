@@ -2,14 +2,20 @@ ffnn:
   inputSize: 7
   outputSize: 1
   hiddenSize: 2
-#  load model: "./arctic/model.pt"
+  load model: "arctic.pt"
 
 prediction:
-  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
-  #cice history: "/home/gvernier/data/20210710/00/gdas.t00z.icef003.nc"
-  output filename: "gdas.t00z.icef003.ffnn.nc"
+  #cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
+  #output filename: "gdas.t00z.icef003.ffnn.nc"
+  cice history: "/home/gvernier/data/20210710/00/gdas.t00z.20210710.icef003.nc"
+  output filename: "gdas.t00z.20210710.icef003.ffnn.nc"
 
-training:
-  epochs: 2000
-  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef009.nc"
-  model output: "model.pt"
+
+#training:
+#  epochs: 200000
+#  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
+#  model output: "arctic.pt"
+
+domain:
+  pole: north
+  clean data: true

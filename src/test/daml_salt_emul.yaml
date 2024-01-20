@@ -1,17 +1,18 @@
 ffnn:
-  inputSize: 20
-  outputSize: 20
+  inputSize: 23
+  outputSize: 23
   hiddenSize: 1
-  kernelSize: 5
-  stride: 1'
-#  load model: "model.pt"
+  kernelSize: 4
+  stride: 1
+  load model: "model.pt"
 
 prediction:
-#  output filename: "salt.ffnn.nc"
-  mom6 restart: "/home/gvernier/data/woa/woa_ts.nc"
+  output filename: "salt.cffnn.nc"
+  ts profiles: "/home/gvernier/data/woa/woa_ts.nc"
+  batch size: 5000
 
-training:
-  epochs: 30000
-  batch size: 300
-  mom6 restart: "/home/gvernier/data/woa/woa_ts.nc"
-  model output: "model.pt"
+#training:
+#  epochs: 220000
+#  batch size: 5000
+#  ts profiles: "/home/gvernier/data/woa/woa_ts.nc"
+#  model output: "model.pt"

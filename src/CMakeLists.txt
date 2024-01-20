@@ -4,8 +4,8 @@ list( APPEND daml_src_files
   daml/Base/BaseEmul.h
   daml/IceEmul/IceEmul.h
   daml/IceEmul/IceNet.h
-  daml/SaltEmul/SaltEmul.h
-  daml/SaltEmul/SaltNet.h
+#  daml/SaltEmul/SaltEmul.h
+#  daml/SaltEmul/SaltNet.h
   )
 set_source_files_properties(${daml_src_files} PROPERTIES LANGUAGE CXX)
 add_library(${PROJECT_NAME} ${daml_src_files})
