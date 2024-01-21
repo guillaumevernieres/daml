@@ -1,6 +1,5 @@
 #pragma once
 
-#include <netcdf>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -9,6 +8,7 @@
 #include "eckit/config/YAMLConfiguration.h"
 #include "eckit/filesystem/PathName.h"
 
+#include "netcdf"
 #include "nlohmann/json.hpp"
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
