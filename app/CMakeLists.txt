@@ -1,4 +1,3 @@
-find_package( NetCDF REQUIRED COMPONENTS CXX)
 
 ecbuild_add_executable( TARGET daml_ice_emul.x
                         SOURCES iceEmul.cc )

@@ -9,6 +9,7 @@
 #include "eckit/filesystem/PathName.h"
 
 #include "nlohmann/json.hpp"
+#include "oops/mpi/mpi.h"
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
 
@@ -34,52 +35,48 @@ namespace daml {
     size_t epochs_;
     std::string modelOutputFileName_;
     std::shared_ptr<Net> model_;
-    eckit::PathName configFile_;
+    //eckit::PathName configFile_;
+    const eckit::mpi::Comm & comm_;
+    const eckit::Configuration & config_;
 
    public:
     // Constructor
-    explicit BaseEmul(const std::string& infileName) :
-      inputSize_(getSize(infileName, "ffnn.inputSize")),
-      outputSize_(getSize(infileName, "ffnn.outputSize")),
-      hiddenSize_(getSize(infileName, "ffnn.hiddenputSize")),
-      configFile_(infileName) {
-      // Parse the configuration
-      eckit::PathName infilePathName = infileName;
-      eckit::YAMLConfiguration config(infilePathName);
-
+    explicit BaseEmul(const eckit::Configuration & config, const eckit::mpi::Comm & comm):
+      comm_(comm), config_(config),
+      inputSize_(getSize(config, "ffnn.inputSize")),
+      outputSize_(getSize(config, "ffnn.outputSize")),
+      hiddenSize_(getSize(config, "ffnn.hiddenSize")) {
+      // Check pyTorch version
       std::cout << "PyTorch Version: "
               << TORCH_VERSION_MAJOR << "."
               << TORCH_VERSION_MINOR << "."
               << TORCH_VERSION_PATCH << std::endl;
 
       // Get the basic design parameters of the ffnn from the configuration.
-      config.get("ffnn.outputSize", outputSize_);
-      config.get("ffnn.hiddenSize", hiddenSize_);
-      config.get("ffnn.hiddenSize", hiddenSize_);
       oops::Log::info() << "FFNN with " << inputSize_ << " inputs, "
                         << outputSize_ << " outputs" << std::endl;
 
       // Get the parameters for the convolution layer
-      if (config.has("ffnn.kernelSize")) {
-          config.get("ffnn.kernelSize", kernelSize_);
-          config.get("ffnn.stride", stride_);
+      if (config_.has("ffnn.kernelSize")) {
+          config_.get("ffnn.kernelSize", kernelSize_);
+          config_.get("ffnn.stride", stride_);
       }
 
       // Optimization parameters
-      if (config.has("training")) {
-        config.get("training.epochs", epochs_);
-        config.get("training.model output", modelOutputFileName_);
-        config.get("training.batch size", batchSize_);
+      if (config_.has("training")) {
+        config_.get("training.epochs", epochs_);
+        config_.get("training.model output", modelOutputFileName_);
+        config_.get("training.batch size", batchSize_);
       }
 
       // Initialize the FFNN
       model_ = std::make_shared<Net>(inputSize_, hiddenSize_, outputSize_, kernelSize_, stride_);
 
       // Load model if asked in the config
-      if (config.has("ffnn.load model")) {
+      if (config_.has("ffnn.load model")) {
 
         std::string modelFileName;
-        config.get("ffnn.load model", modelFileName);
+        config_.get("ffnn.load model", modelFileName);
         torch::load(model_, modelFileName);
         model_->loadNorm(modelFileName);
         std::cout << "-----" << model_->inputMean << std::endl;
@@ -148,9 +145,7 @@ namespace daml {
                          const int n) = 0;
 
     // Initializers
-    int getSize(const std::string& infileName, const std::string& paramName) {
-      eckit::PathName infilePathName = infileName;
-      eckit::YAMLConfiguration config(infilePathName);
+    int getSize(const eckit::Configuration & config, const std::string& paramName) {
       int param;
       config.get(paramName, param);
       return param;

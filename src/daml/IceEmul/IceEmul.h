@@ -70,7 +70,8 @@ namespace daml {
   class IceEmul : public BaseEmul<IceNet> {
    public:
     // Constructor
-    explicit IceEmul(const std::string& infileName) : BaseEmul<IceNet>(infileName) {}
+    explicit IceEmul(const eckit::Configuration & config,
+                     const eckit::mpi::Comm & comm) : BaseEmul<IceNet>(config, comm) {}
 
     // -----------------------------------------------------------------------------
     // Override prepData in IceEmul
@@ -82,11 +83,10 @@ namespace daml {
                torch::Tensor>
     prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
       // Read additional config
-      eckit::YAMLConfiguration config(configFile_);
       std::string pole;
-      config.get("domain.pole", pole);
+      config_.get("domain.pole", pole);
       bool cleanData;
-      config.get("domain.clean data", cleanData);
+      config_.get("domain.clean data", cleanData);
 
       // Read the patterns/targets
       std::vector<float> lat = readCice(fileName, "ULAT");

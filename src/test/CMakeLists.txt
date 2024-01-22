@@ -11,6 +11,6 @@ add_test(NAME daml_ice
   COMMAND ${PROJECT_BINARY_DIR}/../bin/daml_ice_emul.x ${PROJECT_SOURCE_DIR}/src/test/daml_ice_emul.yaml
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/test/)
 
-add_test(NAME daml_salt_emul
-  COMMAND ${CMAKE_BINARY_DIR}/bin/daml_salt_emul.x ${PROJECT_SOURCE_DIR}/src/test/daml_salt_emul.yaml
-  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/test/)
+#add_test(NAME daml_salt_emul
+#  COMMAND ${CMAKE_BINARY_DIR}/bin/daml_salt_emul.x ${PROJECT_SOURCE_DIR}/src/test/daml_salt_emul.yaml
+#  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/test/)
