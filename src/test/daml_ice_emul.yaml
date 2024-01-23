@@ -5,15 +5,17 @@ ffnn:
 #  load model: "arctic.pt"
 
 prediction:
-  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
+  #cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
   #output filename: "gdas.t00z.icef003.ffnn.nc"
   #cice history: "/home/gvernier/data/20210710/00/gdas.t00z.20210710.icef003.nc"
-  output filename: "gdas.t00z.20210710.icef003.ffnn.nc"
-
+  #output filename: "gdas.t00z.20210710.icef003.ffnn.nc"
+  cice history: /work/noaa/da/gvernier/ai/data/ice2021072000.000.2021071500.nc
+  output filename: "ice2021072000.000.2021071500.ffnn.nc"
 
 training:
   epochs: 400 #200000
-  cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
+  cice history: /work/noaa/da/gvernier/ai/data/ice2021072000.000.2021071500.nc
+  #cice history: "/home/gvernier/data/20210715/00/gdas.t00z.icef003.nc"
   model output: "arctic.pt"
 
 domain:
