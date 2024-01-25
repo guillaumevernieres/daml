@@ -1,7 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <mpi.h>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -12,6 +14,8 @@
 #include "nlohmann/json.hpp"
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
+#include "torch/csrc/distributed/c10d/ProcessGroup.hpp"
+#include "torch/csrc/distributed/c10d/ProcessGroupMPI.hpp"
 
 #include "daml/Base/BaseEmul.h"
 #include "IceNet.h"
@@ -82,6 +86,9 @@ namespace daml {
                torch::Tensor,
                torch::Tensor>
     prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
+      // Initialize the torch distributed environment
+      auto pg = std::make_shared<c10d::ProcessGroupMPI>(comm_.rank(), comm_.size(), MPI_COMM_WORLD);
+
       // Read additional config
       std::string pole;
       config_.get("domain.pole", pole);
@@ -102,7 +109,8 @@ namespace daml {
       std::vector<float> tair = readCice(fileName, "Tair_h");
 
       int numPatterns(0);
-      for (size_t i = 0; i < lat.size(); ++i) {
+      //for (size_t i = 0; i < lat.size(); ++i) {
+      for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
         if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
           numPatterns+=1;
         }
@@ -114,7 +122,8 @@ namespace daml {
       std::vector<float> lat_out;
       std::vector<float> lon_out;
       int cnt(0);
-      for (size_t i = 0; i < lat.size(); ++i) {
+      //for (size_t i = 0; i < lat.size(); ++i) {
+      for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
 
         if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
           patterns[cnt][0] = tair[i];
@@ -135,6 +144,16 @@ namespace daml {
       // Compute mean and std of the patterns
       torch::Tensor mean = torch::mean(patterns, /*dim=*/0);
       torch::Tensor std = torch::std(patterns, /*dim=*/0, /*unbiased=*/false);
+
+      pg->allreduce(mean, c10::ReduceOp::SUM).wait();
+      
+
+      // Average over pe's
+      //comm_.allReduceInPlace(mean, inputSize_, eckit::mpi::sum());
+      //mean /= static_cast<float>(comm_.size());
+
+      // Clean up distributed environment
+      //torch::distributed::destroy_process_group();
 
       return std::make_tuple(patterns, targets, lon_out, lat_out, mean, std);
     }

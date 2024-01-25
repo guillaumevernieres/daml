@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mpi.h>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -52,6 +53,10 @@ namespace daml {
               << TORCH_VERSION_MINOR << "."
               << TORCH_VERSION_PATCH << std::endl;
 
+      // Check thread info
+      unsigned int maxThreads = std::thread::hardware_concurrency();
+      oops::Log::info() << "Maximum threads supported: " << maxThreads << std::endl;
+
       // Get the basic design parameters of the ffnn from the configuration.
       oops::Log::info() << "FFNN with " << inputSize_ << " inputs, "
                         << outputSize_ << " outputs" << std::endl;
@@ -102,10 +107,14 @@ namespace daml {
       torch::nn::MSELoss lossFn;
       torch::optim::Adam optimizer(model_->parameters(), torch::optim::AdamOptions(1e-3));
 
-      std::cout << "nomalization in train:" << model_->inputMean << std::endl;
+      std::cout << "normalization in train:" << model_->inputMean << std::endl;
       // Train the model
       oops::Log::info() << "Train ..." << std::endl;
       for (size_t epoch = 0; epoch < epochs_; ++epoch) {
+
+	// Setup the model for training
+	model_->train();
+
         // Forward pass.
         auto output = model_->forward(input);
 
@@ -118,9 +127,23 @@ namespace daml {
           torch::save(model_, modelOutputFileName_);
         }
 
-        // Backward pass and optimization step.
+        // Backward pass
         optimizer.zero_grad();
         loss.backward();
+
+        // Averaging gradients across processes
+        for (auto& param : model_->parameters()) {
+	  //MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(), param.grad().numel(), 
+	  //		MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+	  comm_.allReduceInPlace(param.grad().data_ptr(), param.grad().numel(), eckit::mpi::sum());
+	  param.mutable_grad() /= static_cast<float>(comm_.size());
+
+	  if ( comm_.rank() == 0 ) {
+	    std::cout << param.grad() << std::endl;
+	  }
+        }
+
+	// Gradient descent
         optimizer.step();
       }
       // Save the normalization
@@ -152,20 +175,22 @@ namespace daml {
     }
 
     void updateProgressBar(int progress, int total, float loss) {
-      const int barWidth = 50;
-      float percentage = static_cast<float>(progress) / total;
-      int barLength = static_cast<int>(percentage * barWidth);
-      std::cout << "[";
-      for (int i = 0; i < barWidth; ++i) {
-        if (i < barLength) {
-          std::cout << "=";
-        } else {
-          std::cout << " ";
-        }
+      if (comm_.rank() == 0) {
+	const int barWidth = 50;
+	float percentage = static_cast<float>(progress) / total;
+	int barLength = static_cast<int>(percentage * barWidth);
+	std::cout << "[";
+	for (int i = 0; i < barWidth; ++i) {
+	  if (i < barLength) {
+	    std::cout << "=";
+	  } else {
+	    std::cout << " ";
+	  }
+	}
+	std::cout << "] " << std::setw(3) << static_cast<int>(percentage * 100)
+		  << "% "<< "Loss: " << loss << "\r";
+	std::cout.flush();
       }
-      std::cout << "] " << std::setw(3) << static_cast<int>(percentage * 100)
-                << "% "<< "Loss: " << loss << "\r";
-      std::cout.flush();
     }
 
     void info() {
