@@ -86,9 +86,6 @@ namespace daml {
                torch::Tensor,
                torch::Tensor>
     prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
-      // Initialize the torch distributed environment
-      auto pg = std::make_shared<c10d::ProcessGroupMPI>(comm_.rank(), comm_.size(), MPI_COMM_WORLD);
-
       // Read additional config
       std::string pole;
       config_.get("domain.pole", pole);
@@ -122,7 +119,6 @@ namespace daml {
       std::vector<float> lat_out;
       std::vector<float> lon_out;
       int cnt(0);
-      //for (size_t i = 0; i < lat.size(); ++i) {
       for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
 
         if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
@@ -141,20 +137,25 @@ namespace daml {
         }
       }
 
-      // Compute mean and std of the patterns
-      torch::Tensor mean = torch::mean(patterns, /*dim=*/0);
-      torch::Tensor std = torch::std(patterns, /*dim=*/0, /*unbiased=*/false);
+      // Compute local sum and sum of squares for mean and std calculation
+      torch::Tensor local_sum = torch::sum(patterns, /*dim=*/0);
+      torch::Tensor local_sq_sum = torch::sum(torch::pow(patterns, 2), /*dim=*/0);
 
-      MPI_Allreduce(MPI_IN_PLACE, mean.data_ptr(), mean.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-      //pg->allreduce(mean, c10::ReduceOp::SUM).wait();
-      
+      // Initialize tensors to store the global sum and sum of squares
+      torch::Tensor global_sum = torch::zeros_like(local_sum);
+      torch::Tensor global_sq_sum = torch::zeros_like(local_sq_sum);
 
-      // Average over pe's
-      //comm_.allReduceInPlace(mean, inputSize_, eckit::mpi::sum());
-      //mean /= static_cast<float>(comm_.size());
+      // Use MPI_Allreduce to sum up all local sums and sq_sums across all processes
+      MPI_Allreduce(local_sum.data_ptr(), global_sum.data_ptr(),
+                    global_sum.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(local_sq_sum.data_ptr(), global_sq_sum.data_ptr(),
+                    global_sq_sum.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
-      // Clean up distributed environment
-      //torch::distributed::destroy_process_group();
+      // Calculate the global mean and std deviation
+      torch::Tensor mean = global_sum / (numPatterns * static_cast<float>(comm_.size()));
+      torch::Tensor std = torch::sqrt(global_sq_sum /
+                                      (numPatterns * static_cast<float>(comm_.size())) - torch::pow(mean, 2));
+
 
       return std::make_tuple(patterns, targets, lon_out, lat_out, mean, std);
     }

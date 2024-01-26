@@ -112,8 +112,8 @@ namespace daml {
       oops::Log::info() << "Train ..." << std::endl;
       for (size_t epoch = 0; epoch < epochs_; ++epoch) {
 
-	// Setup the model for training
-	model_->train();
+        // Setup the model for training
+        model_->train();
 
         // Forward pass.
         auto output = model_->forward(input);
@@ -133,17 +133,16 @@ namespace daml {
 
         // Averaging gradients across processes
         for (auto& param : model_->parameters()) {
-	  //MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(), param.grad().numel(), 
-	  //		MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-	  comm_.allReduceInPlace(param.grad().data_ptr(), param.grad().numel(), eckit::mpi::sum());
-	  param.mutable_grad() /= static_cast<float>(comm_.size());
-
-	  if ( comm_.rank() == 0 ) {
-	    std::cout << param.grad() << std::endl;
-	  }
+          //MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(), param.grad().numel(),
+          //   MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+          comm_.allReduceInPlace(param.grad().data_ptr(), param.grad().numel(), eckit::mpi::sum());
+          param.mutable_grad() /= static_cast<float>(comm_.size());
+          if ( comm_.rank() == 0 ) {
+            std::cout << param.grad() << std::endl;
+          }
         }
 
-	// Gradient descent
+        // Gradient descent
         optimizer.step();
       }
       // Save the normalization
