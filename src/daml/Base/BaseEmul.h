@@ -108,6 +108,13 @@ namespace daml {
       torch::optim::Adam optimizer(model_->parameters(), torch::optim::AdamOptions(1e-3));
 
       std::cout << "normalization in train:" << model_->inputMean << std::endl;
+
+      // Get info about the input/target distribution
+      int localBatchSize = input.size(1);
+      int totalBatchSize;
+      MPI_Allreduce(&localBatchSize, &totalBatchSize,
+                    1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
       // Train the model
       oops::Log::info() << "Train ..." << std::endl;
       for (size_t epoch = 0; epoch < epochs_; ++epoch) {
@@ -120,10 +127,10 @@ namespace daml {
 
         // Compute the loss.
         torch::Tensor loss = lossFn(output.view({-1}), target.view({-1}));
+
+        // Save the model
         if (epoch % 100 == 0) {
           updateProgressBar(epoch, epochs_, loss.item<float>());
-
-          // Save the model
           torch::save(model_, modelOutputFileName_);
         }
 
@@ -131,15 +138,18 @@ namespace daml {
         optimizer.zero_grad();
         loss.backward();
 
-        // Averaging gradients across processes
+        // Scale gradients by the local batch size
         for (auto& param : model_->parameters()) {
-          //MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(), param.grad().numel(),
-          //   MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-          comm_.allReduceInPlace(param.grad().data_ptr(), param.grad().numel(), eckit::mpi::sum());
-          param.mutable_grad() /= static_cast<float>(comm_.size());
-          if ( comm_.rank() == 0 ) {
-            std::cout << param.grad() << std::endl;
-          }
+          param.grad().data() *= static_cast<float>(localBatchSize);
+        }
+
+        // Aggregate gradients
+        for (auto& param : model_->parameters()) {
+            MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(),
+                          param.grad().numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+
+            // Scale down the gradients by the total batch size
+            param.grad().data() /= static_cast<float>(totalBatchSize);
         }
 
         // Gradient descent
@@ -175,20 +185,20 @@ namespace daml {
 
     void updateProgressBar(int progress, int total, float loss) {
       if (comm_.rank() == 0) {
-	const int barWidth = 50;
-	float percentage = static_cast<float>(progress) / total;
-	int barLength = static_cast<int>(percentage * barWidth);
-	std::cout << "[";
-	for (int i = 0; i < barWidth; ++i) {
-	  if (i < barLength) {
-	    std::cout << "=";
-	  } else {
-	    std::cout << " ";
-	  }
-	}
-	std::cout << "] " << std::setw(3) << static_cast<int>(percentage * 100)
-		  << "% "<< "Loss: " << loss << "\r";
-	std::cout.flush();
+        const int barWidth = 50;
+        float percentage = static_cast<float>(progress) / total;
+        int barLength = static_cast<int>(percentage * barWidth);
+        std::cout << "[";
+        for (int i = 0; i < barWidth; ++i) {
+          if (i < barLength) {
+            std::cout << "=";
+          } else {
+            std::cout << " ";
+          }
+        }
+        std::cout << "] " << std::setw(3) << static_cast<int>(percentage * 100)
+                  << "% "<< "Loss: " << loss << "\r";
+        std::cout.flush();
       }
     }
 
