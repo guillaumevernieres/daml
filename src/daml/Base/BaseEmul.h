@@ -107,8 +107,6 @@ namespace daml {
       torch::nn::MSELoss lossFn;
       torch::optim::Adam optimizer(model_->parameters(), torch::optim::AdamOptions(1e-3));
 
-      std::cout << "normalization in train:" << model_->inputMean << std::endl;
-
       // Get info about the input/target distribution
       int localBatchSize = input.size(1);
       int totalBatchSize;
@@ -116,17 +114,19 @@ namespace daml {
                     1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
       // Train the model
+      float finalLoss(0.0);
       oops::Log::info() << "Train ..." << std::endl;
       for (size_t epoch = 0; epoch < epochs_; ++epoch) {
 
         // Setup the model for training
-        model_->train();
+        //model_->train();
 
         // Forward pass.
         auto output = model_->forward(input);
 
         // Compute the loss.
         torch::Tensor loss = lossFn(output.view({-1}), target.view({-1}));
+	finalLoss = loss.item<float>();
 
         // Save the model
         if (epoch % 100 == 0) {
@@ -145,21 +145,33 @@ namespace daml {
 
         // Aggregate gradients
         for (auto& param : model_->parameters()) {
-            MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(),
+	  if (param.grad().defined()) {
+	    MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(),
                           param.grad().numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
             // Scale down the gradients by the total batch size
             param.grad().data() /= static_cast<float>(totalBatchSize);
+	  }
         }
+	comm_.barrier();
+        for (auto& param : model_->parameters()) {
+	  oops::Log::info() << " Comm: " << comm_.rank() 
+			    << " Parameters: " << param.grad().data() << std::endl;	
+	}
 
         // Gradient descent
+	comm_.barrier();
         optimizer.step();
       }
-      // Save the normalization
-      // TODO: it should be saved as part of the model, but for some reason it is not.
-      //       figure out why ...
-      model_->saveNorm(modelOutputFileName_);
-      std::cout << std::endl;
+      if (comm_.rank() == 0) { 
+	oops::Log::info() << "Final loss: " << finalLoss << std::endl;
+	oops::Log::info() << "normalization in train:" << model_->inputMean << std::endl;
+	torch::save(model_, modelOutputFileName_);
+	// Save the normalization
+	// TODO: it should be saved as part of the model, but for some reason it is not.
+	//       figure out why ...
+	model_->saveNorm(modelOutputFileName_);
+      }
     }
 
     // Prepare patterns/targets pairs
