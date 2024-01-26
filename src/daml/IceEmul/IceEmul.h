@@ -145,7 +145,8 @@ namespace daml {
       torch::Tensor mean = torch::mean(patterns, /*dim=*/0);
       torch::Tensor std = torch::std(patterns, /*dim=*/0, /*unbiased=*/false);
 
-      pg->allreduce(mean, c10::ReduceOp::SUM).wait();
+      MPI_Allreduce(MPI_IN_PLACE, mean.data_ptr(), mean.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      //pg->allreduce(mean, c10::ReduceOp::SUM).wait();
       
 
       // Average over pe's
