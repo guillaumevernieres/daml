@@ -1,5 +1,8 @@
 #pragma once
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <memory>
 #include <mpi.h>
 #include <string>
@@ -8,6 +11,7 @@
 
 #include "eckit/config/YAMLConfiguration.h"
 #include "eckit/filesystem/PathName.h"
+#include "eckit/mpi/Comm.h"
 
 #include "nlohmann/json.hpp"
 #include "oops/mpi/mpi.h"
@@ -76,6 +80,7 @@ namespace daml {
 
       // Initialize the FFNN
       model_ = std::make_shared<Net>(inputSize_, hiddenSize_, outputSize_, kernelSize_, stride_);
+      model_->initWeights();
 
       // Load model if asked in the config
       if (config_.has("ffnn.load model")) {
@@ -107,6 +112,12 @@ namespace daml {
       torch::nn::MSELoss lossFn;
       torch::optim::Adam optimizer(model_->parameters(), torch::optim::AdamOptions(1e-3));
 
+      // MPI info
+      int worldSize;
+      MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+      int rank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
       // Get info about the input/target distribution
       int localBatchSize = input.size(1);
       int totalBatchSize;
@@ -126,7 +137,7 @@ namespace daml {
 
         // Compute the loss.
         torch::Tensor loss = lossFn(output.view({-1}), target.view({-1}));
-	finalLoss = loss.item<float>();
+        finalLoss = loss.item<float>();
 
         // Save the model
         if (epoch % 100 == 0) {
@@ -142,35 +153,31 @@ namespace daml {
         for (auto& param : model_->parameters()) {
           param.grad().data() *= static_cast<float>(localBatchSize);
         }
+        comm_.barrier();
 
         // Aggregate gradients
         for (auto& param : model_->parameters()) {
-	  if (param.grad().defined()) {
-	    MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(),
+          if (param.grad().defined()) {
+            MPI_Allreduce(MPI_IN_PLACE, param.grad().data_ptr(),
                           param.grad().numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-
-            // Scale down the gradients by the total batch size
             param.grad().data() /= static_cast<float>(totalBatchSize);
-	  }
-        }
-	comm_.barrier();
-        for (auto& param : model_->parameters()) {
-	  oops::Log::info() << " Comm: " << comm_.rank() 
-			    << " Parameters: " << param.grad().data() << std::endl;	
-	}
+          }
+          }
+        comm_.barrier();
 
         // Gradient descent
-	comm_.barrier();
+        comm_.barrier();
         optimizer.step();
       }
-      if (comm_.rank() == 0) { 
-	oops::Log::info() << "Final loss: " << finalLoss << std::endl;
-	oops::Log::info() << "normalization in train:" << model_->inputMean << std::endl;
-	torch::save(model_, modelOutputFileName_);
-	// Save the normalization
-	// TODO: it should be saved as part of the model, but for some reason it is not.
-	//       figure out why ...
-	model_->saveNorm(modelOutputFileName_);
+
+      if (rank == 0) {
+        oops::Log::info() << "Final loss: " << finalLoss << std::endl;
+        oops::Log::info() << "normalization in train:" << model_->inputMean << std::endl;
+        torch::save(model_, modelOutputFileName_);
+        // Save the normalization
+        // TODO: it should be saved as part of the model, but for some reason it is not.
+        //       figure out why ...
+        model_->saveNorm(modelOutputFileName_);
       }
     }
 

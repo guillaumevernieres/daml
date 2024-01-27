@@ -85,7 +85,7 @@ namespace daml {
                std::vector<float>,
                torch::Tensor,
                torch::Tensor>
-    prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
+    prepData(const std::string& fileName, bool geoloc = false, int n = 400000) override {
       // Read additional config
       std::string pole;
       config_.get("domain.pole", pole);
@@ -105,13 +105,18 @@ namespace daml {
       std::vector<float> mask = readCice(fileName, "umask");
       std::vector<float> tair = readCice(fileName, "Tair_h");
 
+      // Calculate the number of patterns per pe
+      int localBatchSize(0);
       int numPatterns(0);
-      //for (size_t i = 0; i < lat.size(); ++i) {
       for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
         if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
-          numPatterns+=1;
+          localBatchSize+=1;
         }
+        if (localBatchSize >= n) { break; }
       }
+      MPI_Allreduce(&localBatchSize, &numPatterns,
+                    1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
       std::cout << "Number of patterns: " << numPatterns << std::endl;
 
       torch::Tensor patterns = torch::empty({numPatterns, inputSize_}, torch::kFloat32);
@@ -135,6 +140,7 @@ namespace daml {
           lon_out.push_back(lon[i]);
           cnt+=1;
         }
+        if (cnt >= numPatterns) { break; }
       }
 
       // Compute local sum and sum of squares for mean and std calculation

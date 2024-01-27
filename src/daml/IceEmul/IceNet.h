@@ -42,6 +42,12 @@ struct IceNet : torch::nn::Module {
     this->inputStd = moments[1];
   }
 
+  void initWeights() {
+    // Xavier initialization for the first two layers
+    torch::nn::init::xavier_normal_(fc1->weight);
+    torch::nn::init::xavier_normal_(fc2->weight);
+  }
+
   //void load(const std::string modelFileName) {
   // torch::load(*this, modelFileName);
     /*
