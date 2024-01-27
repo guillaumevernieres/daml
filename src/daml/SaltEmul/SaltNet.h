@@ -27,6 +27,31 @@ struct SaltNet : torch::nn::Module {
     fc2 = register_module("fc2", torch::nn::Linear(hiddenSize, outputSize));
   }
 
+  // Initialize normalization
+  void initNorm(torch::Tensor mean, torch::Tensor std) {
+    inputMean = mean;
+    inputStd = std;
+  }
+
+  void saveNorm(const std::string modelFileName) {
+    //std::vector<torch::Tensor> moments = {this->inputMean, this->inputStd};
+    //std::cout << moments[0] << std::endl;
+    //torch::save(moments, "normalization." + modelFileName);
+  }
+
+  void loadNorm(const std::string modelFileName) {
+    //std::vector<torch::Tensor> moments;
+    //torch::load(moments, "normalization." + modelFileName);
+    //this->inputMean = moments[0];
+    //this->inputStd = moments[1];
+  }
+
+  void initWeights() {
+    // Xavier initialization for the first two layers
+    //torch::nn::init::xavier_normal_(fc1->weight);
+    //torch::nn::init::xavier_normal_(fc2->weight);
+  }
+
   // Implement the forward pass
   torch::Tensor forward(torch::Tensor x) {
     x = conv(x);
@@ -50,4 +75,6 @@ struct SaltNet : torch::nn::Module {
   torch::nn::Conv1d conv2{nullptr};
   torch::nn::Linear fc1{nullptr};
   torch::nn::Linear fc2{nullptr};
+  torch::Tensor inputMean;
+  torch::Tensor inputStd;
 };

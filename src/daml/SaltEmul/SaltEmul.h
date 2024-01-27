@@ -90,11 +90,18 @@ namespace daml {
   class SaltEmul : public BaseEmul<SaltNet> {
    public:
     // Constructor
-    explicit SaltEmul(const std::string& infileName) : BaseEmul<SaltNet>(infileName) {}
+    explicit SaltEmul(const eckit::Configuration & config,
+                      const eckit::mpi::Comm & comm) : BaseEmul<SaltNet>(config, comm) {}
 
     // -----------------------------------------------------------------------------
     // Override prepData
-    std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
+    //std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
+    std::tuple<torch::Tensor,
+               torch::Tensor,
+               std::vector<float>,
+               std::vector<float>,
+               torch::Tensor,
+               torch::Tensor>
     prepData(const std::string& fileName, bool geoloc = false, int n = -999) override {
       // Read temp and salt from woa file
       array4D temp = readWOA(fileName, "t_an");
@@ -112,6 +119,10 @@ namespace daml {
 
       std::vector<int> depthIndices = {0,  3,  6,  9, 12, 15, 18, 21, 24, 27, 30, 33,
         36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66};
+
+      // Calculate the global mean and std deviation
+      torch::Tensor mean{nullptr};
+      torch::Tensor std{nullptr};
 
       int cnt(0);
       for (size_t j = 1; j < temp[0][0].size()-1; ++j) {
@@ -132,11 +143,11 @@ namespace daml {
           }
           cnt +=1;
           if (cnt >= numPatterns) {
-            return std::make_tuple(patterns, targets, lon, lat);
+            return std::make_tuple(patterns, targets, lon, lat, mean, std);
           }
         }
       }
-      return std::make_tuple(patterns, targets, lon, lat);
+      return std::make_tuple(patterns, targets, lon, lat, mean, std);
     }
 
     // -----------------------------------------------------------------------------

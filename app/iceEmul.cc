@@ -49,7 +49,7 @@ namespace daml {
       return 0;
     }
     // -----------------------------------------------------------------------------
-   private:
+  private:
     std::string appname() const {
       return "gdasapp::iceEmul";
     }
