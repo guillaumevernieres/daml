@@ -1,17 +1,21 @@
 #pragma once
 
-#include <netcdf>
 #include <memory>
+#include <mpi.h>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
 #include "eckit/config/YAMLConfiguration.h"
 #include "eckit/filesystem/PathName.h"
 
+#include "netcdf"
 #include "nlohmann/json.hpp"
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
+#include "torch/csrc/distributed/c10d/ProcessGroup.hpp"
+#include "torch/csrc/distributed/c10d/ProcessGroupMPI.hpp"
 
 #include "daml/Base/BaseEmul.h"
 #include "IceNet.h"
@@ -36,16 +40,58 @@ namespace daml {
     return iceField;
   }
 
+  // Check if data is in the domain
+  bool selectData(const float mask, const float lat, const float aice,
+                  const bool cleanData, std::string pole) {
+    if (pole == "north") {
+      if (cleanData) {
+        if (mask == 1 && lat > 40.0 && aice > 0.0 && aice <= 1.0) {
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        if (lat > 60.0)
+          return true;
+      }
+    }
+    if (pole == "south") {
+      if (cleanData) {
+        if (mask == 1 && lat < -40.0 && aice > 0.0 && aice <= 1.0) {
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        if (lat < -60.0)
+          return true;
+      }
+    }
+    return false;
+  }
+
   // IceEmul class derived from BaseEmul
   class IceEmul : public BaseEmul<IceNet> {
    public:
     // Constructor
-    explicit IceEmul(const std::string& infileName) : BaseEmul<IceNet>(infileName) {}
+    explicit IceEmul(const eckit::Configuration & config,
+                     const eckit::mpi::Comm & comm) : BaseEmul<IceNet>(config, comm) {}
 
     // -----------------------------------------------------------------------------
     // Override prepData in IceEmul
-    std::tuple<torch::Tensor, torch::Tensor, std::vector<float>, std::vector<float>>
-    prepData(const std::string& fileName, bool geoloc = false) override {
+    std::tuple<torch::Tensor,
+               torch::Tensor,
+               std::vector<float>,
+               std::vector<float>,
+               torch::Tensor,
+               torch::Tensor>
+    prepData(const std::string& fileName, bool geoloc = false, int n = 400000) override {
+      // Read additional config
+      std::string pole;
+      config_.get("domain.pole", pole);
+      bool cleanData;
+      config_.get("domain.clean data", cleanData);
+
       // Read the patterns/targets
       std::vector<float> lat = readCice(fileName, "ULAT");
       std::vector<float> lon = readCice(fileName, "ULON");
@@ -59,13 +105,18 @@ namespace daml {
       std::vector<float> mask = readCice(fileName, "umask");
       std::vector<float> tair = readCice(fileName, "Tair_h");
 
+      // Calculate the number of patterns per pe
+      int localBatchSize(0);
       int numPatterns(0);
-      for (size_t i = 0; i < lat.size(); ++i) {
-        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
-        if (lat[i] > 40.0) {
-          numPatterns+=1;
+      for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
+        if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
+          localBatchSize+=1;
         }
+        if (localBatchSize >= n) { break; }
       }
+      MPI_Allreduce(&localBatchSize, &numPatterns,
+                    1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
       std::cout << "Number of patterns: " << numPatterns << std::endl;
 
       torch::Tensor patterns = torch::empty({numPatterns, inputSize_}, torch::kFloat32);
@@ -73,9 +124,9 @@ namespace daml {
       std::vector<float> lat_out;
       std::vector<float> lon_out;
       int cnt(0);
-      for (size_t i = 0; i < lat.size(); ++i) {
-        // if (mask[i] == 1 && lat[i] > 40.0 && aice[i] > 0.0 && aice[i] <= 1.0) {
-        if (lat[i] > 40.0) {
+      for (size_t i = comm_.rank(); i < lat.size(); i += comm_.size()) {
+
+        if (selectData(mask[i], lat[i], aice[i], cleanData, pole)) {
           patterns[cnt][0] = tair[i];
           patterns[cnt][1] = tsfc[i];
           patterns[cnt][2] = sst[i];
@@ -89,13 +140,36 @@ namespace daml {
           lon_out.push_back(lon[i]);
           cnt+=1;
         }
+        if (cnt >= numPatterns) { break; }
       }
-      return std::make_tuple(patterns, targets, lon_out, lat_out);
+
+      // Compute local sum and sum of squares for mean and std calculation
+      torch::Tensor local_sum = torch::sum(patterns, /*dim=*/0);
+      torch::Tensor local_sq_sum = torch::sum(torch::pow(patterns, 2), /*dim=*/0);
+
+      // Initialize tensors to store the global sum and sum of squares
+      torch::Tensor global_sum = torch::zeros_like(local_sum);
+      torch::Tensor global_sq_sum = torch::zeros_like(local_sq_sum);
+
+      // Use MPI_Allreduce to sum up all local sums and sq_sums across all processes
+      MPI_Allreduce(local_sum.data_ptr(), global_sum.data_ptr(),
+                    global_sum.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(local_sq_sum.data_ptr(), global_sq_sum.data_ptr(),
+                    global_sq_sum.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+
+      // Calculate the global mean and std deviation
+      torch::Tensor mean = global_sum / (numPatterns * static_cast<float>(comm_.size()));
+      torch::Tensor std = torch::sqrt(global_sq_sum /
+                                      (numPatterns * static_cast<float>(comm_.size())) - torch::pow(mean, 2));
+
+
+      return std::make_tuple(patterns, targets, lon_out, lat_out, mean, std);
     }
 
     // -----------------------------------------------------------------------------
     // Override predict in IceEmul
-    void predict(const std::string& fileName, const std::string& fileNameResults) override {
+    void predict(const std::string& fileName, const std::string& fileNameResults,
+                 const int n = -999) override {
       // Read the inputs/targets
       auto result = prepData(fileName, true);
       torch::Tensor inputs = std::get<0>(result);
@@ -129,7 +203,6 @@ namespace daml {
 
         // Compute the Jacobian
         torch::Tensor doutdx = model_->jac(input);
-
         // Save the Jacobian elements into individual arrays
         // TODO(G): Store the jacobian in a 2D array
         dcdtair.push_back(doutdx[0].item<float>());
