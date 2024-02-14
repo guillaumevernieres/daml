@@ -89,7 +89,9 @@ namespace daml {
         config_.get("ffnn.load model", modelFileName);
         torch::load(model_, modelFileName);
         model_->loadNorm(modelFileName);
-        std::cout << "-----" << model_->inputMean << std::endl;
+        /*
+        std::cout << "----- mean: " << model_->inputMean << std::endl;
+        std::cout << "----- std dev: " << model_->inputStd << std::endl;
         for (const auto& pair : model_->named_parameters()) {
           std::cout << "Parameter name: " << pair.key()
                     << ", Size: " << pair.value().sizes() << std::endl;
@@ -99,6 +101,7 @@ namespace daml {
                     << ", Size: " << pair.value().sizes() << std::endl;
           std::cout << "       values: " << pair.value() << std::endl;
         }
+        */
       }
 
       // Number of degrees of freedom in the FFNN
