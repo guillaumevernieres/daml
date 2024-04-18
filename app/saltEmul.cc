@@ -28,7 +28,12 @@ namespace daml {
         torch::Tensor inputs = std::get<0>(result);
         torch::Tensor targets = std::get<1>(result);
 
-        oops::Log::info() << "Train the FFNN" << std::endl;
+        oops::Log::info() << "Initialize the normalization" << std::endl;
+        torch::Tensor mean = std::get<4>(result);
+        torch::Tensor std = std::get<5>(result);
+        saltEmul.model_->initNorm(mean, std);
+
+        oops::Log::info() << "Train the FFNN " << targets.sizes() << std::endl;
         saltEmul.train(inputs, targets);
       }
 

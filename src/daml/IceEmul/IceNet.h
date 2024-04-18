@@ -81,7 +81,7 @@ struct IceNet : torch::nn::Module {
   torch::Tensor forward(torch::Tensor x) {
     // Normalize the input
     x = (x - inputMean) / inputStd;
-    x = torch::sigmoid(fc1(x));
+    x = fc1(x);
     x = torch::sigmoid(fc2(x));
     return x;
   }
@@ -94,6 +94,10 @@ struct IceNet : torch::nn::Module {
     return xp.grad();
   }
 
+  torch::Tensor jacNorm(torch::Tensor input) {
+    torch::Tensor frobeniusNorm = torch::tensor(0.0);
+    return frobeniusNorm;
+  }
   // Define the layers.
   torch::nn::Linear fc1{nullptr};
   torch::nn::Linear fc2{nullptr};

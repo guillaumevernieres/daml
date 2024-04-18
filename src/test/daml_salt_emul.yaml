@@ -1,18 +1,18 @@
 ffnn:
   inputSize: 23
-  outputSize: 23
-  hiddenSize: 1
-  kernelSize: 4
+  outputSize: 1  #23
+  hiddenSize: 2
+  kernelSize: 1
   stride: 1
   load model: "model.pt"
 
 prediction:
   output filename: "salt.cffnn.nc"
   ts profiles: "/home/gvernier/data/woa/woa_ts.nc"
-  batch size: 5000
+  batch size: 10000
 
-#training:
-#  epochs: 220000
-#  batch size: 5000
-#  ts profiles: "/home/gvernier/data/woa/woa_ts.nc"
-#  model output: "model.pt"
+training:
+  epochs: 100000
+  batch size: 10000
+  ts profiles: "/home/gvernier/data/woa/woa_ts.nc"
+  model output: "model.pt"

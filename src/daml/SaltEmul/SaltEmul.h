@@ -69,7 +69,7 @@ namespace daml {
     for (size_t jj = j-1; jj < j+1; ++jj) {
       for (size_t ii = i-1; ii < i+1; ++ii) {
         skipProfile = false;
-        if (salt[0][ii][jj][0] > 50.0 || temp[0][ii][jj][0] > 50.0) {
+        if (salt[0][ii][jj][0] > 40.0 || temp[0][ii][jj][0] < 25.0) {
           return true;
         }
         for (size_t z = 0; z < temp[0][0][0].size(); ++z) {
@@ -111,8 +111,9 @@ namespace daml {
       // Input patterns: Temp, Salt and delta Temp
       // Output: delta Salt
       int numPatterns(batchSize_);
+      int numChannels(1);
       if (n > 0) { numPatterns = n; }
-      torch::Tensor patterns = torch::ones({numPatterns, 3, inputSize_}, torch::kFloat32);
+      torch::Tensor patterns = torch::ones({numPatterns, numChannels, inputSize_}, torch::kFloat32);
       torch::Tensor targets = torch::ones({numPatterns, outputSize_}, torch::kFloat32);
       std::vector<float> lat;
       std::vector<float> lon;
@@ -121,8 +122,8 @@ namespace daml {
         36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66};
 
       // Calculate the global mean and std deviation
-      torch::Tensor mean{nullptr};
-      torch::Tensor std{nullptr};
+      torch::Tensor mean = torch::zeros_like(patterns);
+      torch::Tensor std  = torch::ones_like(patterns);
 
       int cnt(0);
       for (size_t j = 1; j < temp[0][0].size()-1; ++j) {
@@ -136,11 +137,11 @@ namespace daml {
           for (int zindex : depthIndices) {
             //for (size_t z = 0; z < inputSize_; ++z) {
             patterns[cnt][0][z] = temp[0][i][j][zindex];
-            patterns[cnt][1][z] = salt[0][i][j][zindex];
-            patterns[cnt][2][z] = temp[0][i-1][j][zindex] - temp[0][i][j][zindex];
-            targets[cnt][z] = salt[0][i-1][j][zindex] - salt[0][i][j][zindex];
+            //targets[cnt][z] = salt[0][i][j][zindex];
             z += 1;
           }
+          targets[cnt][0] = salt[0][i][j][39];
+
           cnt +=1;
           if (cnt >= numPatterns) {
             return std::make_tuple(patterns, targets, lon, lat, mean, std);
@@ -160,33 +161,64 @@ namespace daml {
       torch::Tensor targets = std::get<1>(result);
 
       float temp[inputs.size(0)][inputSize_];
-      float salt[inputs.size(0)][inputSize_];
+      float salt[inputs.size(0)][outputSize_];
+      /*
       float dt[inputs.size(0)][inputSize_];
       float ds[inputs.size(0)][inputSize_];
-      float ds_truth[inputs.size(0)][inputSize_];
+      */
+      float salt_truth[inputs.size(0)][outputSize_];
 
       torch::Tensor prediction = model_->forward(inputs);
+
+      // Compute the Jacobian
+      //std::cout << "@@@@@@@@@@@@ prediction: " << prediction << std::endl;
+      //std::cout << "@@@@@@@@@@@@ target: " << targets << std::endl;
+
+      //for (int ii = 0; ii < inputs.sizes()[0]; ++ii) {
+      for (int ii = 0; ii < n; ++ii) {
+        torch::Tensor x = torch::zeros({1, 1, inputSize_});
+        x[0][0] = inputs[ii][0];
+        auto test = model_->jacNorm(x);
+        //        std::cout << "||Jacobian|| = " << test << std::endl;
+//
+//        auto doutdx = model_->jac(x, 1.0e-1);
+//        std::cout << "Jacobian=" << std::endl;
+//        std::cout << "[";
+//        for (const auto &row : doutdx) {
+//          std::cout << "[";
+//          for (const auto &element : row) {
+//            std::cout << element << ", ";
+//          }
+//          std::cout << "],";
+//          std::cout << std::endl; // New line at the end of each row
+//        }
+//        std::cout << "]";
+
+      }
+
       std::cout << "============================" << std::endl;
       std::cout << "======= PREDICTION =========" << std::endl;
       std::cout << "============================" << std::endl;
       for (size_t j = 0; j < inputs.size(0); ++j) {
         for (size_t k = 0; k < inputSize_; ++k) {
           temp[j][k] = inputs[j][0][k].item<float>();
-          salt[j][k] = inputs[j][1][k].item<float>();
-          dt[j][k] = inputs[j][2][k].item<float>();
-          ds[j][k] = prediction[j][k].item<float>();
-          ds_truth[j][k] = targets[j][k].item<float>();
+          //salt[j][k] = inputs[j][1][k].item<float>();
+          //dt[j][k] = inputs[j][2][k].item<float>();
+          //salt[j][k] = prediction[j][0].item<float>();
+          //          salt_truth[j][k] = targets[j][k].item<float>();
+          //salt_truth[j][0] = targets[j][0].item<float>();
         }
+        salt[j][0] = prediction[j][0].item<float>();
+        salt_truth[j][0] = targets[j][0].item<float>();
       }
 
       netCDF::NcFile ncFile(fileNameResults, netCDF::NcFile::replace);
       netCDF::NcDim dimNbatch = ncFile.addDim("n", inputs.size(0));
       netCDF::NcDim dimLevels = ncFile.addDim("levels", inputSize_);
+      netCDF::NcDim dimLevelsOut = ncFile.addDim("levelsOut", outputSize_);
       ncFile.addVar("temp", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(temp);
-      ncFile.addVar("salt", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(salt);
-      ncFile.addVar("dt", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(dt);
-      ncFile.addVar("ds", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(ds);
-      ncFile.addVar("ds_truth", netCDF::ncFloat, {dimNbatch, dimLevels}).putVar(ds_truth);
+      ncFile.addVar("salt", netCDF::ncFloat, {dimNbatch, dimLevelsOut}).putVar(salt);
+      ncFile.addVar("salt_truth", netCDF::ncFloat, {dimNbatch, dimLevelsOut}).putVar(salt_truth);
     }
   };
 }  // namespace daml
