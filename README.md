@@ -15,11 +15,11 @@ oops, ufo, ioda, vader, saber, soca, atlas, eckit, ...
 Cloning and building pytorch
 
 ```
-git clone --recursive --branch v2.1.1 https://github.com/pytorch/pytorch
+git clone --recursive --branch v2.3.1 https://github.com/pytorch/pytorch
 cd pytorch
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=<path to install> ..
+cmake -DUSE_CUDA=OFF -DUSE_CUDNN=OFF -DUSE_NCCL=OFF -DBUILD_CAFFE2_OPS=OFF -DUSE_MKLDNN=OFF -DUSE_DISTRIBUTED=ON -DCMAKE_INSTALL_PREFIX=<path to install> ..
 make -j<n>
 make install
 ```
