@@ -36,6 +36,10 @@ Naive implementation that demonstrates the use of the JEDI and Torch libraries.
 ## Build process
 For now, you will have to specify the root instalation of the JEDI repositories and Torch:
 
+In Hercules, torch is here:
+```
+/work/noaa/epic/role-epic/spack-stack/hercules/spack-stack-1.7.0/envs/ue-gcc/install/gcc/12.2.0/py-torch-2.1.2-bgf7llx/lib/python3.10/site-packages/torch/lib/
+```
 ```
 mkdir build
 cd build

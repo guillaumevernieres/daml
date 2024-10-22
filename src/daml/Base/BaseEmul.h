@@ -13,7 +13,7 @@
 #include "eckit/filesystem/PathName.h"
 #include "eckit/mpi/Comm.h"
 
-#include "nlohmann/json.hpp"
+//#include "nlohmann/json.hpp"
 #include "oops/mpi/mpi.h"
 #include "oops/util/Logger.h"
 #include "torch/torch.h"
@@ -220,7 +220,6 @@ namespace daml {
         optimizer.step();
       }
 
-      /*
       if (rank == 0) {
         oops::Log::info() << "Final loss: " << finalLoss << std::endl;
         oops::Log::info() << "normalization in train:" << model_->inputMean << std::endl;
@@ -230,7 +229,6 @@ namespace daml {
         //       figure out why ...
         model_->saveNorm(modelOutputFileName_);
       }
-      */
     }
 
     // Prepare patterns/targets pairs
